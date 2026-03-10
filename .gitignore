@@ -1,6 +1,8 @@
 # Gradle
 .gradle/
+.gradle/***
 build/
+build/**
 
 # Java
 *.class
@@ -9,10 +11,10 @@ hs_err_pid*
 
 # IDEs
 .idea/
+.idea/**
 *.iml
 out/
 
 # OS files
 .DS_Store
 Thumbs.db
-
