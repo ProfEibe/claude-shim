@@ -42,13 +42,13 @@ That means:
 For `zsh`, add the build output directory to the front of `PATH`:
 
 ```bash
-export PATH="/home/jholtak/WORK/PROAUT/claude-shim/build/native/nativeCompile:$PATH"
+export PATH="/path/to/claude-shim/build/native/nativeCompile:$PATH"
 ```
 
 To make that persistent for your user, add the same line to `~/.zshrc`, then reload your shell:
 
 ```bash
-echo 'export PATH="/home/jholtak/WORK/PROAUT/claude-shim/build/native/nativeCompile:$PATH"' >> ~/.zshrc
+echo 'export PATH="/path/to/claude-shim/build/native/nativeCompile:$PATH"' >> ~/.zshrc
 source ~/.zshrc
 ```
 
@@ -56,7 +56,7 @@ If you prefer not to reference the repository build directory directly, you can 
 
 ```bash
 mkdir -p ~/.local/bin
-cp /home/jholtak/WORK/PROAUT/claude-shim/build/native/nativeCompile/claude ~/.local/bin/claude
+cp /path/to/claude-shim/build/native/nativeCompile/claude ~/.local/bin/claude
 chmod +x ~/.local/bin/claude
 echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
 source ~/.zshrc
@@ -73,13 +73,13 @@ which claude
 It should point to either:
 
 ```text
-/home/jholtak/WORK/PROAUT/claude-shim/build/native/nativeCompile/claude
+/path/to/claude-shim/build/native/nativeCompile/claude
 ```
 
 or your copied location such as:
 
 ```text
-/home/jholtak/.local/bin/claude
+~/.local/bin/claude
 ```
 
 You can also run the shim in debug mode:
@@ -125,4 +125,3 @@ Make sure the original Claude installation is still present later on `PATH`. The
 ### Native build is slow the first time
 
 The first `nativeCompile` run may download GraalVM and build the binary from scratch, so it will be noticeably slower than later runs.
-
