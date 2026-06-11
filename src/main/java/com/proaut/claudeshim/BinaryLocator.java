@@ -1,30 +1,50 @@
 package com.proaut.claudeshim;
 
+import org.apache.commons.lang3.StringUtils;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 
-public class BinaryLocator {
+/**
+ * Finds the real Claude binary on PATH, skipping the shim itself.
+ *
+ * <p>The shim shadows the {@code claude} command on PATH. When invoked,
+ * this class scans PATH to find the real Claude binary (the shim skips itself).</p>
+ */
+public final class BinaryLocator {
 
+    private BinaryLocator() {}
+
+    /**
+     * Locate the real Claude binary on PATH.
+     */
     public static String findRealClaude() {
-        return findRealClaude(System.getenv("PATH"), currentCommandPath(), System.getProperty("os.name", ""));
+        return findRealClaude(
+                System.getenv("PATH"),
+                currentCommandPath(),
+                System.getProperty("os.name", ""));
     }
 
+    /**
+     * Locate the real Claude binary on PATH (overridable for testing).
+     */
     static String findRealClaude(String path, Path selfPath) {
         return findRealClaude(path, selfPath, System.getProperty("os.name", ""));
     }
 
     static String findRealClaude(String path, Path selfPath, String osName) {
-
-        if (path == null) return null;
+        if (StringUtils.isBlank(path)) {
+            return null;
+        }
 
         Path normalizedSelfPath = normalize(selfPath);
         boolean windows = isWindows(osName);
 
         for (String dir : path.split(File.pathSeparator)) {
-            String trimmedDir = dir.trim();
+            String trimmedDir = StringUtils.trim(dir);
             if (trimmedDir.isEmpty()) {
                 continue;
             }
@@ -46,6 +66,9 @@ public class BinaryLocator {
         return null;
     }
 
+    /**
+     * Platform-specific candidate executable names.
+     */
     private static List<String> candidateNames(boolean windows) {
         if (windows) {
             return List.of("claude.exe", "claude.cmd", "claude.bat", "claude.com", "claude");
@@ -53,22 +76,32 @@ public class BinaryLocator {
         return List.of("claude");
     }
 
+    /**
+     * Check if a file is an executable binary.
+     */
     private static boolean isRunnable(File candidate, boolean windows) {
         return candidate.exists() && (windows || candidate.canExecute());
     }
 
     private static boolean isWindows(String osName) {
-        return osName != null && osName.toLowerCase().contains("windows");
+        return StringUtils.containsIgnoreCase(osName, "windows");
     }
 
+    /**
+     * Resolve the current process's own executable path.
+     */
     private static Path currentCommandPath() {
         return ProcessHandle.current()
                 .info()
-                .command()
+                .commandLine()
+                .map(cmdLine -> cmdLine.split("\\s+")[0])
                 .map(Paths::get)
                 .orElse(null);
     }
 
+    /**
+     * Normalize a path to its real absolute form.
+     */
     private static Path normalize(Path path) {
         if (path == null) {
             return null;

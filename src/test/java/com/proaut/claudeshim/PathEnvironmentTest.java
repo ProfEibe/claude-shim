@@ -18,9 +18,9 @@ class PathEnvironmentTest {
                 paths.customer-b=/work/customer-b
                 """);
 
-        assertEquals(2, config.envPaths.size());
-        assertEquals(List.of("/work/customer-a", "/srv/customer-a"), config.envPaths.get("customer-a"));
-        assertEquals(List.of("/work/customer-b"), config.envPaths.get("customer-b"));
+        assertEquals(2, config.envPaths().size());
+        assertEquals(List.of("/work/customer-a", "/srv/customer-a"), config.envPaths().get("customer-a"));
+        assertEquals(List.of("/work/customer-b"), config.envPaths().get("customer-b"));
     }
 
     @Test
@@ -29,7 +29,7 @@ class PathEnvironmentTest {
                 paths.customer-a=/work/customer-a, , ,/srv/customer-a
                 """);
 
-        assertEquals(List.of("/work/customer-a", "/srv/customer-a"), config.envPaths.get("customer-a"));
+        assertEquals(List.of("/work/customer-a", "/srv/customer-a"), config.envPaths().get("customer-a"));
     }
 
     @Test
@@ -39,15 +39,15 @@ class PathEnvironmentTest {
                 paths.real=/work/real
                 """);
 
-        assertEquals(1, config.envPaths.size());
-        assertTrue(config.envPaths.containsKey("real"));
+        assertEquals(1, config.envPaths().size());
+        assertTrue(config.envPaths().containsKey("real"));
     }
 
     @Test
     void emptyConfigHasEmptyEnvPaths() {
         Config config = Main.parseConfig("https_proxy=http://x\n");
-        assertNotNull(config.envPaths);
-        assertTrue(config.envPaths.isEmpty());
+        assertNotNull(config.envPaths());
+        assertTrue(config.envPaths().isEmpty());
     }
 
     @Test
@@ -154,7 +154,7 @@ class PathEnvironmentTest {
         Environment env = Main.resolveEnvironment(null, envsDir, mappings, cwd);
 
         assertNotNull(env);
-        assertEquals("customer-a", env.name);
+        assertEquals("customer-a", env.name());
     }
 
     @Test
@@ -173,7 +173,7 @@ class PathEnvironmentTest {
         Environment env = Main.resolveEnvironment("customer-b", envsDir, mappings, cwd);
 
         assertNotNull(env);
-        assertEquals("customer-b", env.name);
+        assertEquals("customer-b", env.name());
     }
 
     @Test
@@ -190,7 +190,7 @@ class PathEnvironmentTest {
         Environment env = Main.resolveEnvironment(null, envsDir, mappings, cwd);
 
         assertNotNull(env);
-        assertEquals("only", env.name);
+        assertEquals("only", env.name());
     }
 
     private static void assumeNotBlank(String s) {

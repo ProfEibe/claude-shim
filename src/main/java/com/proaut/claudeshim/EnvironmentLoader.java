@@ -4,17 +4,27 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.io.StringReader;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
 
-public class EnvironmentLoader {
+/**
+ * Loads named environments from {@code .properties} files in an environments directory.
+ */
+public final class EnvironmentLoader {
 
     private static final Logger log = LoggerFactory.getLogger(EnvironmentLoader.class);
-    private static final String ENV_PREFIX = "env.";
 
+    private EnvironmentLoader() {}
+
+    /**
+     * List all environments found in the given directory.
+     * Results are sorted alphabetically by environment name.
+     */
     public static List<Environment> listEnvironments(Path envsDir) {
         List<Environment> result = new ArrayList<>();
 
@@ -35,43 +45,26 @@ public class EnvironmentLoader {
             log.error("Error listing environments in {}: {}", envsDir, e.getMessage());
         }
 
-        result.sort(Comparator.comparing(e -> e.name));
+        result.sort(Comparator.comparing(e -> e.name()));
         return result;
     }
 
+    /**
+     * Load a single environment from a properties file.
+     */
     static Environment loadEnvironment(String name, Path file) {
         try {
-            String content = Files.readString(file);
-            Properties properties = new Properties();
-            properties.load(new StringReader(content));
-
-            Map<String, String> raw = new HashMap<>();
-            for (String key : properties.stringPropertyNames()) {
-                raw.put(key.trim().toLowerCase(Locale.ROOT), properties.getProperty(key));
-            }
-
-            Config config = new Config();
-            config.https_proxy = Main.asString(raw.get("https_proxy"));
-            config.http_proxy = Main.asString(raw.get("http_proxy"));
-            config.no_proxy = Main.asString(raw.get("no_proxy"));
-            config.disable_telemetry = Main.asBoolean(raw.get("disable_telemetry"));
-
-            Map<String, String> extraEnvVars = new LinkedHashMap<>();
-            for (String key : properties.stringPropertyNames()) {
-                String trimmed = key.trim();
-                if (trimmed.toLowerCase(Locale.ROOT).startsWith(ENV_PREFIX)) {
-                    String envVarName = trimmed.substring(ENV_PREFIX.length());
-                    String value = properties.getProperty(key);
-                    if (value != null && !value.isBlank()) {
-                        extraEnvVars.put(envVarName, value.trim());
-                    }
-                }
-            }
-
+            Map<String, String> props = ConfigParser.parseContent(readFile(file));
+            Config config = ConfigParser.parseGlobalConfig(props);
+            Map<String, String> extraEnvVars = ConfigParser.parseExtraEnvVars(props);
             return new Environment(name, config, extraEnvVars);
         } catch (Exception e) {
             log.error("Error loading environment '{}' from {}: {}", name, file, e.getMessage());
             return null;
         }
+    }
+
+    private static String readFile(Path path) throws IOException {
+        return Files.readString(path);
     }
 }

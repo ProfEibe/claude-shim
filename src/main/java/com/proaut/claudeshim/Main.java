@@ -3,347 +3,237 @@ package com.proaut.claudeshim;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.io.StringReader;
-import java.nio.file.*;
-import java.util.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.Map;
 
+/**
+ * Entry point for the Claude shim.
+ *
+ * <p>The shim shadows the {@code claude} command on PATH, intercepts calls,
+ * applies proxy/telemetry configuration, selects an environment, and delegates
+ * to the real Claude binary.</p>
+ */
 public class Main {
 
     private static final Logger log = LoggerFactory.getLogger(Main.class);
 
     public static void main(String[] args) throws Exception {
 
+        // Configure slf4j-simple output format
         System.setProperty("org.slf4j.simpleLogger.showDateTime", "true");
         System.setProperty("org.slf4j.simpleLogger.dateTimeFormat", "yyyy-MM-dd'T'HH:mm:ss.SSSZ");
         System.setProperty("org.slf4j.simpleLogger.showThreadName", "false");
         System.setProperty("org.slf4j.simpleLogger.showLogName", "false");
 
+        // Parse CLI arguments (--env, --version, --v)
+        CliArgs cliArgs = CliArgs.from(args);
+
+        // Handle --version / --v
+        if (cliArgs.versionFlag()) {
+            BuildInfo info = BuildInfo.load();
+            if (info != null) {
+                System.out.println(info);
+            } else {
+                System.out.println("claude-shim (build info not available)");
+            }
+            System.exit(0);
+        }
+
+        // Print version
+        BuildInfo info = BuildInfo.load();
+        if (info != null) {
+            log.info("claude-shim {}", info.version() + "   Branch: " + info.branch() + "   Build date: " + info.date());
+        }
+
+        // Load global configuration
         Config cfg = loadConfig();
 
-        String envName = null;
-        List<String> forwardArgs = new ArrayList<>();
-        for (int i = 0; i < args.length; i++) {
-            if ("--env".equals(args[i]) && i + 1 < args.length) {
-                envName = args[++i];
-            } else {
-                forwardArgs.add(args[i]);
-            }
-        }
+        // Resolve the environment to use
+        Environment selectedEnv = resolveEnvironment(cliArgs.envName(), cfg);
 
-        Environment selectedEnv = resolveEnvironment(envName, cfg);
-
+        // Apply environment-level overrides to global config
         if (selectedEnv != null) {
-            log.info("Using environment: {}", selectedEnv.name);
-            if (selectedEnv.config.https_proxy != null) cfg.https_proxy = selectedEnv.config.https_proxy;
-            if (selectedEnv.config.http_proxy != null) cfg.http_proxy = selectedEnv.config.http_proxy;
-            if (selectedEnv.config.no_proxy != null) cfg.no_proxy = selectedEnv.config.no_proxy;
-            if (selectedEnv.config.disable_telemetry != null) cfg.disable_telemetry = selectedEnv.config.disable_telemetry;
+            log.info("Using environment: {}", selectedEnv.name());
+            cfg = applyOverrides(cfg, selectedEnv.config());
         }
 
+        // Locate the real Claude binary (skip the shim itself)
         String real = BinaryLocator.findRealClaude();
-
         log.info("Claude detected on path: {}", real);
 
-        List<String> cmd = new ArrayList<>();
+        // Build the command to execute
+        List<String> cmd = new java.util.ArrayList<>();
         cmd.add(real);
-        cmd.addAll(forwardArgs);
+        cmd.addAll(cliArgs.forwardArgs());
 
+        // Launch the process with configured environment variables
         ProcessBuilder pb = new ProcessBuilder(cmd);
-
         Map<String, String> env = pb.environment();
 
         if (selectedEnv != null) {
-            for (Map.Entry<String, String> entry : selectedEnv.extraEnvVars.entrySet()) {
-                log.info("Setting env var from environment '{}': {}", selectedEnv.name, entry.getKey());
+            for (Map.Entry<String, String> entry : selectedEnv.extraEnvVars().entrySet()) {
+                log.info("Setting env var from environment '{}': {}", selectedEnv.name(), entry.getKey());
                 env.put(entry.getKey(), entry.getValue());
             }
         }
 
-        if (cfg.https_proxy != null) {
-            log.info("Using HTTPS_PROXY: {}", cfg.https_proxy);
-            env.put("HTTPS_PROXY", cfg.https_proxy);
+        if (cfg.https_proxy() != null) {
+            log.info("Using HTTPS_PROXY: {}", cfg.https_proxy());
+            env.put("HTTPS_PROXY", cfg.https_proxy());
         }
-
-        if (cfg.http_proxy != null) {
-            log.info("Using HTTP_PROXY: {}", cfg.http_proxy);
-            env.put("HTTP_PROXY", cfg.http_proxy);
+        if (cfg.http_proxy() != null) {
+            log.info("Using HTTP_PROXY: {}", cfg.http_proxy());
+            env.put("HTTP_PROXY", cfg.http_proxy());
         }
-
-        if (cfg.no_proxy != null) {
-            log.info("Using NO_PROXY: {}", cfg.no_proxy);
-            env.put("NO_PROXY", cfg.no_proxy);
+        if (cfg.no_proxy() != null) {
+            log.info("Using NO_PROXY: {}", cfg.no_proxy());
+            env.put("NO_PROXY", cfg.no_proxy());
         }
-
-        if (Boolean.TRUE.equals(cfg.disable_telemetry)) {
+        if (Boolean.TRUE.equals(cfg.disable_telemetry())) {
             log.info("Telemetry disabled");
             env.put("DO_NOT_TRACK", "1");
             env.put("CLAUDE_DISABLE_TELEMETRY", "1");
         }
 
         pb.inheritIO();
-
         Process p = pb.start();
         System.exit(p.waitFor());
     }
 
-    static Environment resolveEnvironment(String envName, Config cfg) {
-        return resolveEnvironment(envName, envsDir(), cfg.envPaths, currentWorkingDirectory());
+    // ---- config helpers ----
+
+    private static Config applyOverrides(Config base, Config override) {
+        return new Config(
+                override.https_proxy() != null ? override.https_proxy() : base.https_proxy(),
+                override.http_proxy() != null ? override.http_proxy() : base.http_proxy(),
+                override.no_proxy() != null ? override.no_proxy() : base.no_proxy(),
+                override.disable_telemetry() != null ? override.disable_telemetry() : base.disable_telemetry(),
+                base.envPaths()
+        );
     }
 
-    static Environment resolveEnvironment(String envName, Path envsDir) {
-        return resolveEnvironment(envName, envsDir, Map.of(), currentWorkingDirectory());
-    }
-
-    static Environment resolveEnvironment(String envName, Path envsDir,
-                                          Map<String, List<String>> envPaths, Path cwd) {
-        log.info("Looking for environments in {}", envsDir);
-        List<Environment> environments = EnvironmentLoader.listEnvironments(envsDir);
-
-        if (environments.isEmpty()) {
-            return null;
-        }
-
-        if (envName != null) {
-            for (Environment e : environments) {
-                if (e.name.equals(envName)) {
-                    return e;
-                }
-            }
-            log.error("Environment '{}' not found. Available: {}", envName,
-                    environments.stream().map(e -> e.name).toList());
-            System.exit(1);
-        }
-
-        String pathMatchedEnv = findEnvironmentByPath(cwd, envPaths);
-        if (pathMatchedEnv != null) {
-            for (Environment e : environments) {
-                if (e.name.equals(pathMatchedEnv)) {
-                    log.info("Auto-selected environment '{}' from working directory {}", e.name, cwd);
-                    return e;
-                }
-            }
-            log.warn("Path mapping points to environment '{}', but no such environment file exists. " +
-                    "Falling back to default selection.", pathMatchedEnv);
-        }
-
-        if (environments.size() == 1) {
-            log.info("Only one environment found: {}. Using it.", environments.get(0).name);
-            return environments.get(0);
-        }
-
-        return promptForEnvironment(environments);
-    }
-
-    static String findEnvironmentByPath(Path cwd, Map<String, List<String>> envPaths) {
-        if (cwd == null || envPaths == null || envPaths.isEmpty()) {
-            return null;
-        }
-
-        Path normalizedCwd;
-        try {
-            normalizedCwd = cwd.toAbsolutePath().normalize();
-        } catch (Exception e) {
-            log.warn("Could not normalize working directory '{}': {}", cwd, e.getMessage());
-            return null;
-        }
-
-        String bestMatch = null;
-        int bestDepth = -1;
-
-        for (Map.Entry<String, List<String>> entry : envPaths.entrySet()) {
-            for (String pathStr : entry.getValue()) {
-                Path mappedPath = expandAndNormalize(pathStr);
-                if (mappedPath == null) continue;
-                if (normalizedCwd.startsWith(mappedPath)) {
-                    int depth = mappedPath.getNameCount();
-                    if (depth > bestDepth) {
-                        bestDepth = depth;
-                        bestMatch = entry.getKey();
-                    }
-                }
-            }
-        }
-        return bestMatch;
-    }
-
-    static Path expandAndNormalize(String pathStr) {
-        if (pathStr == null || pathStr.isBlank()) return null;
-        try {
-            String expanded = pathStr;
-            if (expanded.equals("~") || expanded.startsWith("~/") || expanded.startsWith("~\\")) {
-                String home = System.getProperty("user.home", "");
-                if (!home.isEmpty()) {
-                    expanded = home + expanded.substring(1);
-                }
-            }
-            return Paths.get(expanded).toAbsolutePath().normalize();
-        } catch (Exception e) {
-            log.warn("Invalid path '{}' in path mappings: {}", pathStr, e.getMessage());
-            return null;
-        }
-    }
-
-    static Path currentWorkingDirectory() {
-        try {
-            return Paths.get("").toAbsolutePath();
-        } catch (Exception e) {
-            log.warn("Could not determine working directory: {}", e.getMessage());
-            return null;
-        }
-    }
-
-    private static Environment promptForEnvironment(List<Environment> environments) {
-        try {
-            return InteractivePrompt.select("Select environment:", environments, e -> e.name);
-        } catch (Exception e) {
-            log.debug("Interactive prompt unavailable ({}), falling back to numeric input", e.getMessage());
-            return promptForEnvironmentNumeric(environments);
-        }
-    }
-
-    private static Environment promptForEnvironmentNumeric(List<Environment> environments) {
-        System.err.println("Select environment:");
-        for (int i = 0; i < environments.size(); i++) {
-            System.err.printf("  [%d] %s%n", i + 1, environments.get(i).name);
-        }
-        System.err.print("Choice: ");
-        System.err.flush();
-
-        try {
-            BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
-            String line = reader.readLine();
-            if (line == null) {
-                System.exit(1);
-            }
-            int choice = Integer.parseInt(line.trim());
-            if (choice < 1 || choice > environments.size()) {
-                System.err.println("Invalid choice.");
-                System.exit(1);
-            }
-            return environments.get(choice - 1);
-        } catch (Exception e) {
-            System.err.println("Invalid input.");
-            System.exit(1);
-            return null;
-        }
-    }
-
-    private static Path envsDir() {
-        return defaultConfigPath().getParent().resolve("envs");
-    }
+    // ---- config loading ----
 
     private static Config loadConfig() {
         return loadConfig(defaultConfigPath());
     }
 
     static Config loadConfig(Path p) {
-        try {
-            log.info("Looking for config file at {}", p);
+        log.info("Looking for config file at {}", p);
 
-            if (!Files.exists(p)) {
-                log.warn("No config file found at {}", p);
-                return new Config();
-            }
+        if (!Files.exists(p)) {
+            log.warn("No config file found at {}", p);
+            return new Config();
+        }
 
-            String content = Files.readString(p);
-            Config c = parseConfig(content);
+        Map<String, String> props = ConfigParser.parseContent(readFile(p));
+        Config config = ConfigParser.parseGlobalConfig(props);
+
+        // Merge path mappings into the default (mutable) envPaths
+        Map<String, List<String>> pathMappings = ConfigParser.parsePathMappings(props);
+        if (!pathMappings.isEmpty()) {
+            // Create a mutable copy of the config's envPaths
+            var mutableConfig = new com.proaut.claudeshim.Config(
+                    config.https_proxy(),
+                    config.http_proxy(),
+                    config.no_proxy(),
+                    config.disable_telemetry(),
+                    new java.util.LinkedHashMap<>(config.envPaths())
+            );
+            mutableConfig.envPaths().putAll(pathMappings);
             log.info("Loaded config from {}", p);
-            return c;
-
-        } catch (Exception e) {
-            log.error("Error loading config: {}", e.getMessage());
+            return mutableConfig;
         }
 
-        return new Config();
+        log.info("Loaded config from {}", p);
+        return config;
     }
 
-    static Config parseConfig(String content) {
-        Properties properties = new Properties();
+    private static String readFile(Path path) {
         try {
-            properties.load(new StringReader(content));
+            return Files.readString(path);
         } catch (Exception e) {
-            throw new IllegalArgumentException("Invalid properties configuration", e);
+            log.error("Error reading {}: {}", path, e.getMessage());
+            return "";
         }
-
-        Map<String, String> parsed = new HashMap<>();
-        for (String name : properties.stringPropertyNames()) {
-            parsed.put(name.trim().toLowerCase(Locale.ROOT), properties.getProperty(name));
-        }
-
-        Config c = new Config();
-        c.https_proxy = asString(parsed.get("https_proxy"));
-        c.http_proxy = asString(parsed.get("http_proxy"));
-        c.no_proxy = asString(parsed.get("no_proxy"));
-        c.disable_telemetry = asBoolean(parsed.get("disable_telemetry"));
-
-        for (String key : properties.stringPropertyNames()) {
-            String trimmed = key.trim();
-            if (trimmed.toLowerCase(Locale.ROOT).startsWith("paths.")) {
-                String envName = trimmed.substring("paths.".length());
-                if (envName.isEmpty()) continue;
-                String value = properties.getProperty(key);
-                if (value == null || value.isBlank()) continue;
-                List<String> paths = new ArrayList<>();
-                for (String part : value.split(",")) {
-                    String trimmedPart = part.trim();
-                    if (!trimmedPart.isEmpty()) paths.add(trimmedPart);
-                }
-                if (!paths.isEmpty()) c.envPaths.put(envName, paths);
-            }
-        }
-        return c;
     }
+
+    // ---- environment resolution ----
+
+    static Environment resolveEnvironment(String envName, Config cfg) {
+        return EnvResolver.resolve(envName, envsDir(), cfg.envPaths(), EnvResolver.currentWorkingDirectory());
+    }
+
+    static Environment resolveEnvironment(String envName, Path envsDir) {
+        return EnvResolver.resolve(envName, envsDir, Map.of(), EnvResolver.currentWorkingDirectory());
+    }
+
+    static Environment resolveEnvironment(String envName, Path envsDir,
+                                          Map<String, List<String>> envPaths, Path cwd) {
+        return EnvResolver.resolve(envName, envsDir, envPaths, cwd);
+    }
+
+    static String findEnvironmentByPath(Path cwd, Map<String, List<String>> envPaths) {
+        return EnvResolver.findEnvironmentByPath(cwd, envPaths);
+    }
+
+    /**
+     * Parse a properties string into a Config (used by tests).
+     */
+    static Config parseConfig(String content) {
+        Map<String, String> props = ConfigParser.parseContent(content);
+        Config config = ConfigParser.parseGlobalConfig(props);
+        Map<String, List<String>> pathMappings = ConfigParser.parsePathMappings(props);
+        if (pathMappings.isEmpty()) {
+            return config;
+        }
+        var mutableConfig = new Config(
+                config.https_proxy(),
+                config.http_proxy(),
+                config.no_proxy(),
+                config.disable_telemetry(),
+                new java.util.LinkedHashMap<>(config.envPaths())
+        );
+        mutableConfig.envPaths().putAll(pathMappings);
+        return mutableConfig;
+    }
+
+    // ---- platform-specific config path ----
 
     private static Path defaultConfigPath() {
-        return resolveDefaultConfigPath(System.getProperty("os.name", ""), System.getenv(), System.getProperty("user.home", ""));
+        return resolveDefaultConfigPath(
+                System.getProperty("os.name", ""),
+                System.getenv(),
+                System.getProperty("user.home", ""));
     }
 
     static Path resolveDefaultConfigPath(String osName, Map<String, String> env, String userHome) {
-        boolean windows = osName != null && osName.toLowerCase(Locale.ROOT).contains("windows");
-        boolean mac = osName != null && osName.toLowerCase(Locale.ROOT).contains("mac");
+        boolean windows = osName != null && osName.toLowerCase(java.util.Locale.ROOT).contains("windows");
+        boolean mac = osName != null && osName.toLowerCase(java.util.Locale.ROOT).contains("mac");
 
         if (windows) {
             String appData = env.get("APPDATA");
             if (appData != null && !appData.isBlank()) {
-                return Paths.get(appData, "claude-shim", "config.properties");
+                return Path.of(appData, "claude-shim", "config.properties");
             }
-            return Paths.get(userHome, "AppData", "Roaming", "claude-shim", "config.properties");
+            return Path.of(userHome, "AppData", "Roaming", "claude-shim", "config.properties");
         }
 
         if (mac) {
-            return Paths.get(userHome, "Library", "Application Support", "claude-shim", "config.properties");
+            return Path.of(userHome, "Library", "Application Support", "claude-shim", "config.properties");
         }
 
         String xdgConfigHome = env.get("XDG_CONFIG_HOME");
         if (xdgConfigHome != null && !xdgConfigHome.isBlank()) {
-            return Paths.get(xdgConfigHome, "claude-shim", "config.properties");
+            return Path.of(xdgConfigHome, "claude-shim", "config.properties");
         }
 
-        return Paths.get(userHome, ".config", "claude-shim", "config.properties");
+        return Path.of(userHome, ".config", "claude-shim", "config.properties");
     }
 
-    static String asString(Object value) {
-        if (value == null) {
-            return null;
-        }
-        String s = value.toString().trim();
-        return s.isEmpty() ? null : s;
-    }
-
-    static Boolean asBoolean(Object value) {
-        if (value == null) {
-            return null;
-        }
-        if (value instanceof Boolean b) {
-            return b;
-        }
-        String s = value.toString().trim().toLowerCase(Locale.ROOT);
-        return switch (s) {
-            case "1", "true", "yes", "on" -> Boolean.TRUE;
-            case "0", "false", "no", "off" -> Boolean.FALSE;
-            default -> null;
-        };
+    private static Path envsDir() {
+        return defaultConfigPath().getParent().resolve("envs");
     }
 }
