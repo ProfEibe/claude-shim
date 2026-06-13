@@ -18,6 +18,7 @@ import java.util.Map;
 public class Main {
 
     private static final Logger log = LoggerFactory.getLogger(Main.class);
+    private static final String MASKED = "*****";
 
     public static void main(String[] args) throws Exception {
 
@@ -80,15 +81,15 @@ public class Main {
         }
 
         if (cfg.https_proxy() != null) {
-            log.info("Using HTTPS_PROXY: {}", cfg.https_proxy());
+            log.info("Using HTTPS_PROXY: {}", maskCredentials(cfg.https_proxy()));
             env.put("HTTPS_PROXY", cfg.https_proxy());
         }
         if (cfg.http_proxy() != null) {
-            log.info("Using HTTP_PROXY: {}", cfg.http_proxy());
+            log.info("Using HTTP_PROXY: {}", maskCredentials(cfg.http_proxy()));
             env.put("HTTP_PROXY", cfg.http_proxy());
         }
         if (cfg.no_proxy() != null) {
-            log.info("Using NO_PROXY: {}", cfg.no_proxy());
+            log.info("Using NO_PROXY: {}", maskCredentials(cfg.no_proxy()));
             env.put("NO_PROXY", cfg.no_proxy());
         }
         if (Boolean.TRUE.equals(cfg.disable_telemetry())) {
@@ -100,6 +101,29 @@ public class Main {
         pb.inheritIO();
         Process p = pb.start();
         System.exit(p.waitFor());
+    }
+
+    /**
+     * Masks credentials in proxy URLs (e.g. http://user:pass@host:port)
+     * so sensitive information is never printed to the log.
+     */
+    static String maskCredentials(String url) {
+        if (url == null) {
+            return null;
+        }
+        int schemeIdx = url.indexOf("://");
+        if (schemeIdx < 0) {
+            return url;
+        }
+        // Find the last '@' after the scheme — handles @ in passwords.
+        int atIdx = url.lastIndexOf('@', url.length() - 1);
+        if (atIdx <= schemeIdx + 3) {
+            return url;
+        }
+        // Replace everything between :// and @ with *****
+        return url.substring(0, schemeIdx + 3)
+                + MASKED
+                + url.substring(atIdx);
     }
 
     // ---- config helpers ----
