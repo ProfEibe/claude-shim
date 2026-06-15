@@ -62,7 +62,17 @@ try {
     buildBranch = 'unknown'
 }
 if (buildBranch.isEmpty()) buildBranch = 'unknown'
+
+// Prefer git tag (semantic version) over the hardcoded version when available
 def projectVersionVal = project.version.toString()
+try {
+    def tagOutput = 'git describe --tags --exact-match'.execute().text.trim()
+    // Accept only tags that look like semver (optionally prefixed with 'v')
+    if (tagOutput.matches(/^v?\d+\.\d+\.\d+(-.+)?$/)) {
+        projectVersionVal = tagOutput
+    }
+} catch (Exception ignored) {}
+if (projectVersionVal.isEmpty()) projectVersionVal = project.version.toString()
 
 def generatedSrc = file('build/generated-sources/java')
 
