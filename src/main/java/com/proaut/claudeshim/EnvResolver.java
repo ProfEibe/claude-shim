@@ -15,7 +15,6 @@ import java.util.Map;
 final class EnvResolver {
 
     private static final Logger log = LoggerFactory.getLogger(EnvResolver.class);
-    private static final int KEY_TIMEOUT_MS = 100;
 
     private EnvResolver() {}
 
