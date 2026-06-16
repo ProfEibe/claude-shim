@@ -19,10 +19,10 @@ class MainConfigTest {
                 disable_telemetry=yes
                 """);
 
-        assertEquals("http://proxy.example:8443", config.https_proxy);
-        assertEquals("http://proxy.example:8080", config.http_proxy);
-        assertEquals("localhost,127.0.0.1", config.no_proxy);
-        assertEquals(Boolean.TRUE, config.disable_telemetry);
+        assertEquals("http://proxy.example:8443", config.https_proxy());
+        assertEquals("http://proxy.example:8080", config.http_proxy());
+        assertEquals("localhost,127.0.0.1", config.no_proxy());
+        assertEquals(Boolean.TRUE, config.disable_telemetry());
     }
 
     @Test
@@ -32,18 +32,18 @@ class MainConfigTest {
                 Disable_Telemetry: off
                 """);
 
-        assertEquals("http://secure.example:8443", config.https_proxy);
-        assertEquals(Boolean.FALSE, config.disable_telemetry);
+        assertEquals("http://secure.example:8443", config.https_proxy());
+        assertEquals(Boolean.FALSE, config.disable_telemetry());
     }
 
     @Test
     void returnsEmptyConfigWhenPropertiesFileIsMissing() {
         Config config = Main.loadConfig(Path.of("does-not-exist", "config.properties"));
 
-        assertNull(config.https_proxy);
-        assertNull(config.http_proxy);
-        assertNull(config.no_proxy);
-        assertNull(config.disable_telemetry);
+        assertNull(config.https_proxy());
+        assertNull(config.http_proxy());
+        assertNull(config.no_proxy());
+        assertNull(config.disable_telemetry());
     }
 
     @Test
@@ -57,9 +57,9 @@ class MainConfigTest {
 
         Config config = Main.loadConfig(tempFile);
 
-        assertEquals("http://proxy.example:8443", config.https_proxy);
-        assertEquals("localhost", config.no_proxy);
-        assertEquals(Boolean.TRUE, config.disable_telemetry);
+        assertEquals("http://proxy.example:8443", config.https_proxy());
+        assertEquals("localhost", config.no_proxy());
+        assertEquals(Boolean.TRUE, config.disable_telemetry());
     }
 
     @Test

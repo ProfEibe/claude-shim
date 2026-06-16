@@ -4,6 +4,8 @@ plugins {
     id 'org.graalvm.buildtools.native' version '0.11.5'
 }
 
+version = 'untracked'
+
 @org.gradle.work.DisableCachingByDefault(because = 'Repairs provisioned toolchain launchers outside the build directory')
 abstract class RepairProvisionedNativeImageLaunchers extends org.gradle.api.DefaultTask {
     @org.gradle.api.tasks.Input
@@ -45,11 +47,89 @@ repositories {
     mavenCentral()
 }
 
+// Generate build metadata (date + git branch) into build-info.properties
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
+
+def buildInfoOutput = file('build/generated-resources/build-info.properties')
+
+// Compute values at configuration time
+def buildDate = ZonedDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssXXX"))
+def buildBranch
+try {
+    buildBranch = 'git rev-parse --abbrev-ref HEAD'.execute().text.trim()
+} catch (Exception e) {
+    buildBranch = 'unknown'
+}
+if (buildBranch.isEmpty()) buildBranch = 'unknown'
+
+// Prefer git tag (semantic version) over the hardcoded version when available
+def projectVersionVal = project.version.toString()
+try {
+    def tagOutput = 'git describe --tags --exact-match'.execute().text.trim()
+    // Accept only tags that look like semver (optionally prefixed with 'v')
+    if (tagOutput.matches(/^v?\d+\.\d+\.\d+(-.+)?$/)) {
+        projectVersionVal = tagOutput
+    }
+} catch (Exception ignored) {}
+if (projectVersionVal.isEmpty()) projectVersionVal = project.version.toString()
+
+def generatedSrc = file('build/generated-sources/java')
+
+// Write a Java source file with constants baked in (works in native image)
+def writeBuildInfoSrc = tasks.register('writeBuildInfoSrc') {
+    description = 'Writes BuildInfoConstants.java with version/date/branch'
+    outputs.file(new File(generatedSrc, 'com/proaut/claudeshim/BuildInfoConstants.java'))
+    doLast {
+        generatedSrc.mkdirs()
+        def target = new File(generatedSrc, 'com/proaut/claudeshim/BuildInfoConstants.java')
+        def safeBranch = buildBranch.replace('\\', '\\\\').replace('"', '\\"')
+        target.text = """\
+// Auto-generated — do not edit
+package com.proaut.claudeshim;
+
+/** Build-time constants baked into the binary (works in GraalVM native image). */
+final class BuildInfoConstants {
+    static final String VERSION = "${projectVersionVal}";
+    static final String DATE    = "${buildDate}";
+    static final String BRANCH  = "${safeBranch}";
+}
+"""
+    }
+}
+
+// Write build-info.properties for classpath-based runs (dev/Uberjar)
+def writeBuildInfo = tasks.register('writeBuildInfo') {
+    description = 'Writes build-info.properties with date, branch and version'
+    outputs.file(buildInfoOutput)
+    dependsOn(writeBuildInfoSrc)
+    doLast {
+        buildInfoOutput.parentFile.mkdirs()
+        buildInfoOutput.text = """\
+build.version=${projectVersionVal}
+build.date=${buildDate}
+build.branch=${buildBranch}
+"""
+    }
+}
+
+sourceSets.main.java.srcDir(generatedSrc)
+
+tasks.named('compileJava') {
+    dependsOn(writeBuildInfoSrc)
+}
+
+processResources {
+    dependsOn(writeBuildInfo)
+    from(buildInfoOutput.parent)
+}
+
 dependencies {
     implementation 'org.slf4j:slf4j-api:2.0.17'
     implementation 'org.slf4j:slf4j-simple:2.0.17'
     implementation 'org.jline:jline-terminal:3.27.1'
     implementation 'org.jline:jline-terminal-jni:3.27.1'
+    implementation 'org.apache.commons:commons-lang3:3.18.0'
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.0'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
