@@ -2,7 +2,24 @@
 
 A native-friendly Java wrapper for the `claude` CLI on Linux, macOS, and Windows.
 
-> Quickstart: see [`INSTALL.md`](INSTALL.md) for the fastest path to building the native shim and putting it first on `PATH`.
+> Quickstart: see [`INSTALL.md`](INSTALL.md) for the fastest path to getting the shim on your `PATH`.
+
+## Download pre-built release
+
+For Linux and Windows, you can skip the build step entirely. Pre-built native binaries are published as [GitHub Releases](https://github.com/holtakj/claude-shim/releases).
+
+Example — downloading the `v0.0.1-alpha4` release:
+
+```bash
+# Linux
+curl -L -o claude https://github.com/holtakj/claude-shim/releases/download/v0.0.1-alpha4/claude
+chmod +x claude
+
+# Windows (PowerShell)
+# Download from https://github.com/holtakj/claude-shim/releases/download/v0.0.1-alpha4/claude.exe
+```
+
+See [`INSTALL.md`](INSTALL.md) for placing the binary on your `PATH`.
 
 ## Description
 
@@ -14,7 +31,9 @@ Features:
 - GraalVM native binary support
 - Automatic GraalVM JDK 25 provisioning for native builds
 
-## Build
+## Build from source
+
+> Pre-built binaries are available on the [releases page](https://github.com/holtakj/claude-shim/releases).
 
 Linux/macOS:
 
@@ -44,7 +63,9 @@ Windows:
 .\gradlew.bat test
 ```
 
-## Build native binary
+## Build native binary from source
+
+> Pre-built binaries are available on the [releases page](https://github.com/holtakj/claude-shim/releases). Build this only if you need a custom or unreleased version.
 
 On the first `nativeCompile`, Gradle automatically provisions a GraalVM JDK 25 toolchain with `native-image` support when network access is available.
 
@@ -174,7 +195,7 @@ Keys without the `env.` prefix override the global config for that session. Keys
 
 ### Native toolchain download fails
 
-If `nativeCompile` cannot download GraalVM automatically, check that the machine has network access to the toolchain repositories Gradle uses. As a fallback, point Gradle at an existing GraalVM installation.
+If `nativeCompile` cannot download GraalVM automatically, consider using a pre-built binary from a [GitHub Release](https://github.com/holtakj/claude-shim/releases) instead of building locally.
 
 Linux/macOS:
 
@@ -196,7 +217,7 @@ This project repairs broken `native-image` launchers in auto-provisioned GraalVM
 
 ### First native build is slow
 
-The first `nativeCompile` run downloads GraalVM and builds the binary from scratch, so it is expected to take noticeably longer than later runs.
+The first `nativeCompile` run downloads GraalVM and builds the binary from scratch, so it is expected to take noticeably longer than later runs. For faster setup, use a [pre-built binary from a GitHub Release](https://github.com/holtakj/claude-shim/releases) instead.
 
 ### Configuration cache is not reused
 

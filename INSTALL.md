@@ -1,14 +1,31 @@
 # Install Claude Shim
 
-This guide shows how to build the native `claude` shim and place it first on your `PATH` so your shell runs the compiled shim before the real Claude CLI.
+This guide shows how to get the native `claude` shim on your `PATH` so your shell runs the shim before the real Claude CLI.
 
 ## Prerequisites
 
-- A working Gradle wrapper from this repository
-- Network access on the first native build so Gradle can download a GraalVM JDK 25 toolchain automatically
 - The real `claude` CLI already installed somewhere else on your `PATH`
 
-## 1. Compile the native image
+## Getting the binary
+
+You have two options: download a pre-built release, or compile from source.
+
+### Option A: Download a pre-built release (recommended)
+
+Pre-built native binaries are published on the [GitHub Releases page](https://github.com/holtakj/claude-shim/releases).
+
+**Linux** — download the `claude` binary:
+
+```bash
+curl -L -o claude https://github.com/holtakj/claude-shim/releases/download/v0.0.1-alpha4/claude
+chmod +x claude
+```
+
+**Windows** — download the `claude.exe` binary from the [GitHub Releases page](https://github.com/holtakj/claude-shim/releases).
+
+### Option B: Compile from source
+
+If you need a custom or unreleased version, build the binary yourself.
 
 From the repository root, build the native binary.
 
@@ -24,23 +41,23 @@ Windows PowerShell:
 .\gradlew.bat clean test nativeCompile
 ```
 
-The compiled binary is written to:
+The binary is written to:
 
 - Linux/macOS: `build/native/nativeCompile/claude`
 - Windows: `build/native/nativeCompile/claude.exe`
 
-## 2. Put the compiled shim first on `PATH`
+## 2. Put the shim first on `PATH`
 
 The shim works by being found before the real Claude CLI. When you run `claude`, the shim starts first, then it searches the rest of `PATH` for the next `claude` executable and forwards the call to it.
 
 That means:
 
-- the compiled shim directory must be **before** the real Claude CLI on `PATH`
+- the shim directory must be **before** the real Claude CLI on `PATH`
 - the real Claude CLI must still remain on `PATH` somewhere later
 
 ### Linux/macOS (`zsh`)
 
-Add the build output directory to the front of `PATH`:
+Add the release binary directory to the front of `PATH`:
 
 ```bash
 export PATH="/path/to/claude-shim/build/native/nativeCompile:$PATH"
