@@ -4,7 +4,7 @@ plugins {
     id 'org.graalvm.buildtools.native' version '0.11.5'
 }
 
-version = '0.1.0'
+version = 'untracked'
 
 @org.gradle.work.DisableCachingByDefault(because = 'Repairs provisioned toolchain launchers outside the build directory')
 abstract class RepairProvisionedNativeImageLaunchers extends org.gradle.api.DefaultTask {
