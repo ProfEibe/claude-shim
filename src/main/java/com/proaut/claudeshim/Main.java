@@ -75,7 +75,7 @@ public class Main {
 
         if (selectedEnv != null) {
             for (Map.Entry<String, String> entry : selectedEnv.extraEnvVars().entrySet()) {
-                log.info("Setting env var from environment '{}': {}", selectedEnv.name(), entry.getKey());
+                log.info("Setting env var from environment '{}': {}={}", selectedEnv.name(), entry.getKey(), maskCredentials(entry.getValue()));
                 env.put(entry.getKey(), entry.getValue());
             }
         }
