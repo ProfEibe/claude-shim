@@ -88,28 +88,17 @@ class EnvironmentTest {
     }
 
     @Test
-    void loadsColorFromPropertiesFile() throws Exception {
+    void loadsThemeFromPropertiesFile() throws Exception {
         Path tempDir = Files.createTempDirectory("env-test");
         Path envsDir = Files.createDirectory(tempDir.resolve("envs"));
         Files.writeString(envsDir.resolve("magenta-corp.properties"), """
-                color=magenta
+                theme=custom:magenta
                 env.ANTHROPIC_API_KEY=sk-ant-key
                 """);
 
         var environments = EnvironmentLoader.listEnvironments(envsDir);
 
         assertEquals(1, environments.size());
-        assertEquals("magenta", environments.get(0).color());
-    }
-
-    @Test
-    void colorIsNullWhenNotSpecified() throws Exception {
-        Path tempDir = Files.createTempDirectory("env-test");
-        Path envsDir = Files.createDirectory(tempDir.resolve("envs"));
-        Files.writeString(envsDir.resolve("no-color.properties"), "env.KEY=value\n");
-
-        var environments = EnvironmentLoader.listEnvironments(envsDir);
-
-        assertNull(environments.get(0).color());
+        assertEquals("custom:magenta", environments.get(0).config().theme());
     }
 }

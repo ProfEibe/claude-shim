@@ -56,8 +56,9 @@ public class Main {
 
         // Apply environment-level overrides to global config
         if (selectedEnv != null) {
-            Banner.print(selectedEnv.name(), selectedEnv.color(), info != null ? info.version() : null);
             cfg = applyOverrides(cfg, selectedEnv.config());
+            String bannerColor = ClaudeSettings.readThemeColor(cfg.theme());
+            Banner.print(selectedEnv.name(), bannerColor, info != null ? info.version() : null);
         }
 
         // Locate the real Claude binary (skip the shim itself)

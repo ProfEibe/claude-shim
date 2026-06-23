@@ -53,6 +53,24 @@ final class ClaudeSettings {
         return json.substring(0, last).stripTrailing() + ",\n  \"theme\": \"" + theme + "\"\n}";
     }
 
+    /**
+     * Reads the "overrides.claude" hex color from a custom theme file.
+     * theme must be in "custom:name" format; returns null for built-in themes or missing files.
+     */
+    static String readThemeColor(String theme) {
+        if (theme == null || !theme.startsWith("custom:")) return null;
+        String name = theme.substring("custom:".length());
+        Path themeFile = Path.of(System.getProperty("user.home", ""), ".claude", "themes", name + ".json");
+        if (!Files.exists(themeFile)) return null;
+        try {
+            Matcher m = Pattern.compile("\"claude\"\\s*:\\s*\"(#[0-9a-fA-F]{6})\"")
+                               .matcher(Files.readString(themeFile));
+            return m.find() ? m.group(1) : null;
+        } catch (IOException e) {
+            return null;
+        }
+    }
+
     static String stripTheme(String json) {
         // Remove "theme": "...", (trailing comma variant)
         String result = json.replaceAll(",?\\s*\\n?\\s*\"theme\"\\s*:\\s*\"[^\"]*\"\\s*,?", "");

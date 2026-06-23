@@ -88,10 +88,6 @@ final class ConfigParser {
 
     // ---- environment-specific parsing ----
 
-    static String parseColor(Map<String, String> props) {
-        return lookup(props, "color");
-    }
-
     /**
      * Parse extra environment variables (keys starting with "env.").
      * The key after "env." preserves its original casing from the file.

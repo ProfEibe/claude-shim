@@ -57,8 +57,7 @@ public final class EnvironmentLoader {
             Map<String, String> props = ConfigParser.parseContent(readFile(file));
             Config config = ConfigParser.parseGlobalConfig(props);
             Map<String, String> extraEnvVars = ConfigParser.parseExtraEnvVars(props);
-            String color = ConfigParser.parseColor(props);
-            return new Environment(name, config, extraEnvVars, color);
+            return new Environment(name, config, extraEnvVars);
         } catch (Exception e) {
             log.error("Error loading environment '{}' from {}: {}", name, file, e.getMessage());
             return null;
