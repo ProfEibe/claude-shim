@@ -42,7 +42,16 @@ public final class Banner {
 
     static String ansiCode(String color) {
         if (color == null) return "\033[36m";
-        return switch (color.toLowerCase().trim()) {
+        String c = color.trim();
+        if (c.startsWith("#") && c.length() == 7) {
+            try {
+                int r = Integer.parseInt(c.substring(1, 3), 16);
+                int g = Integer.parseInt(c.substring(3, 5), 16);
+                int b = Integer.parseInt(c.substring(5, 7), 16);
+                return "\033[38;2;" + r + ";" + g + ";" + b + "m";
+            } catch (NumberFormatException ignored) {}
+        }
+        return switch (c.toLowerCase()) {
             case "red"            -> "\033[31m";
             case "green"          -> "\033[32m";
             case "yellow"         -> "\033[33m";
