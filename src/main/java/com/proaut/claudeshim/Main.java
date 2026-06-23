@@ -56,7 +56,7 @@ public class Main {
 
         // Apply environment-level overrides to global config
         if (selectedEnv != null) {
-            log.info("Using environment: {}", selectedEnv.name());
+            Banner.print(selectedEnv.name(), selectedEnv.color(), info != null ? info.version() : null);
             cfg = applyOverrides(cfg, selectedEnv.config());
         }
 

@@ -9,11 +9,15 @@ import java.util.Map;
 public record Environment(
         String name,
         Config config,
-        Map<String, String> extraEnvVars
+        Map<String, String> extraEnvVars,
+        String color
 ) {
 
-    /** Default constructor that null-checks the extra env vars map. */
     public Environment {
         extraEnvVars = extraEnvVars != null ? extraEnvVars : new LinkedHashMap<>();
+    }
+
+    public Environment(String name, Config config, Map<String, String> extraEnvVars) {
+        this(name, config, extraEnvVars, null);
     }
 }
