@@ -12,7 +12,6 @@ public record Environment(
         Map<String, String> extraEnvVars
 ) {
 
-    /** Default constructor that null-checks the extra env vars map. */
     public Environment {
         extraEnvVars = extraEnvVars != null ? extraEnvVars : new LinkedHashMap<>();
     }

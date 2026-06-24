@@ -55,7 +55,8 @@ final class ConfigParser {
                 lookup(props, "http_proxy"),
                 lookup(props, "no_proxy"),
                 lookupBool(props, "disable_telemetry"),
-                new java.util.LinkedHashMap<>()
+                new java.util.LinkedHashMap<>(),
+                lookup(props, "theme")
         );
     }
 

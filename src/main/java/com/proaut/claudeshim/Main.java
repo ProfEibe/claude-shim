@@ -56,8 +56,9 @@ public class Main {
 
         // Apply environment-level overrides to global config
         if (selectedEnv != null) {
-            log.info("Using environment: {}", selectedEnv.name());
             cfg = applyOverrides(cfg, selectedEnv.config());
+            String bannerColor = ClaudeSettings.readThemeColor(cfg.theme());
+            Banner.print(selectedEnv.name(), bannerColor, info != null ? info.version() : null);
         }
 
         // Locate the real Claude binary (skip the shim itself)
@@ -102,6 +103,12 @@ public class Main {
             env.put("CLAUDE_DISABLE_TELEMETRY", "1");
         }
 
+        if (cfg.theme() != null) {
+            ClaudeSettings.applyTheme(cfg.theme());
+        } else {
+            ClaudeSettings.removeTheme();
+        }
+
         pb.inheritIO();
         Process p = pb.start();
         System.exit(p.waitFor());
@@ -141,7 +148,8 @@ public class Main {
                 override.http_proxy() != null ? override.http_proxy() : base.http_proxy(),
                 override.no_proxy() != null ? override.no_proxy() : base.no_proxy(),
                 override.disable_telemetry() != null ? override.disable_telemetry() : base.disable_telemetry(),
-                base.envPaths()
+                base.envPaths(),
+                override.theme() != null ? override.theme() : base.theme()
         );
     }
 
@@ -171,7 +179,8 @@ public class Main {
                     config.http_proxy(),
                     config.no_proxy(),
                     config.disable_telemetry(),
-                    new java.util.LinkedHashMap<>(config.envPaths())
+                    new java.util.LinkedHashMap<>(config.envPaths()),
+                    config.theme()
             );
             mutableConfig.envPaths().putAll(pathMappings);
             log.info("Loaded config from {}", p);
@@ -225,7 +234,8 @@ public class Main {
                 config.http_proxy(),
                 config.no_proxy(),
                 config.disable_telemetry(),
-                new java.util.LinkedHashMap<>(config.envPaths())
+                new java.util.LinkedHashMap<>(config.envPaths()),
+                config.theme()
         );
         mutableConfig.envPaths().putAll(pathMappings);
         return mutableConfig;

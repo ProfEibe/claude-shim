@@ -12,11 +12,12 @@ public record Config(
         String http_proxy,
         String no_proxy,
         Boolean disable_telemetry,
-        Map<String, List<String>> envPaths
+        Map<String, List<String>> envPaths,
+        String theme
 ) {
 
     /** Default empty constructor used when no config file is found. */
     public Config() {
-        this(null, null, null, null, new LinkedHashMap<>());
+        this(null, null, null, null, new LinkedHashMap<>(), null);
     }
 }

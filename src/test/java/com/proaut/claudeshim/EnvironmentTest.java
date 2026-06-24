@@ -86,4 +86,19 @@ class EnvironmentTest {
 
         assertNull(env);
     }
+
+    @Test
+    void loadsThemeFromPropertiesFile() throws Exception {
+        Path tempDir = Files.createTempDirectory("env-test");
+        Path envsDir = Files.createDirectory(tempDir.resolve("envs"));
+        Files.writeString(envsDir.resolve("magenta-corp.properties"), """
+                theme=custom:magenta
+                env.ANTHROPIC_API_KEY=sk-ant-key
+                """);
+
+        var environments = EnvironmentLoader.listEnvironments(envsDir);
+
+        assertEquals(1, environments.size());
+        assertEquals("custom:magenta", environments.get(0).config().theme());
+    }
 }
