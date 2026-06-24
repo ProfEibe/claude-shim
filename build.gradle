@@ -1,7 +1,7 @@
 plugins {
     id 'java'
     id 'application'
-    id 'org.graalvm.buildtools.native' version '0.11.5'
+    id 'org.graalvm.buildtools.native' version '1.1.1'
 }
 
 version = 'untracked'
@@ -125,13 +125,13 @@ processResources {
 }
 
 dependencies {
-    implementation 'org.slf4j:slf4j-api:2.0.17'
-    implementation 'org.slf4j:slf4j-simple:2.0.17'
-    implementation 'org.jline:jline-terminal:3.27.1'
-    implementation 'org.jline:jline-terminal-jni:3.27.1'
-    implementation 'org.apache.commons:commons-lang3:3.18.0'
-    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.0'
-    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    implementation 'org.slf4j:slf4j-api:2.0.18'
+    implementation 'org.slf4j:slf4j-simple:2.0.18'
+    implementation 'org.jline:jline-terminal:4.2.1'
+    implementation 'org.jline:jline-terminal-jni:4.2.1'
+    implementation 'org.apache.commons:commons-lang3:3.20.0'
+    testImplementation 'org.junit.jupiter:junit-jupiter:6.1.0'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:6.1.0'
 }
 
 java {
